@@ -6,5 +6,5 @@ rust-version = "1.85"
 
 [dependencies]
 thiserror = "2.0"
-tokio = { version = "1", features = ["net", "time", "rt", "io-util", "sync", "macros"] }
+tokio = { version = "1", features = ["net", "time", "rt", "rt-multi-thread", "io-util", "sync", "macros"] }
 log = "0.4"

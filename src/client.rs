@@ -419,6 +419,7 @@ async fn send_client_info(client: &mut Client) -> Result<()> {
 
 /// Perform the Synergy protocol handshake on a client
 async fn perform_handshake(client: &mut Client, client_name: &str) -> Result<()> {
+    // Step 1: Wait for server hello and respond
     loop {
         match client.recv_message().await? {
             Message::HelloBarrier(_hello_msg) => {
@@ -459,6 +460,67 @@ async fn perform_handshake(client: &mut Client, client_name: &str) -> Result<()>
             }
         }
     }
+
+    // Step 2: Wait for QueryInfo and respond with ClientInfo
+    loop {
+        match client.recv_message().await? {
+            Message::QueryInfo(_) => {
+                send_client_info(client).await?;
+                break;
+            }
+            Message::KeepAlive(_) => {
+                let keepalive_response = Message::KeepAlive(MessageKeepAlive);
+                client.send_message(keepalive_response).await?;
+                continue;
+            }
+            Message::NoOp(_) => {
+                continue;
+            }
+            msg => {
+                return Err(ClientError::InvalidServerAddress(format!(
+                    "Expected QueryInfo from server, got: {:?}",
+                    msg
+                )));
+            }
+        }
+    }
+
+    // Step 3: Wait for the rest of the handshake messages (LSYN, CIAK, CROP, DSOP)
+    // We need to receive all of these before the handshake is complete
+    let mut received_lsyn = false;
+    let mut received_ciak = false;
+    let mut received_crop = false;
+    let mut received_dsop = false;
+
+    while !received_lsyn || !received_ciak || !received_crop || !received_dsop {
+        match client.recv_message().await? {
+            Message::LegacySynergy(_) => {
+                received_lsyn = true;
+            }
+            Message::InfoAcknowledgment(_) => {
+                received_ciak = true;
+            }
+            Message::ResetOptions(_) => {
+                received_crop = true;
+            }
+            Message::SetOptions(_) => {
+                received_dsop = true;
+            }
+            Message::KeepAlive(_) => {
+                let keepalive_response = Message::KeepAlive(MessageKeepAlive);
+                client.send_message(keepalive_response).await?;
+                continue;
+            }
+            Message::NoOp(_) => {
+                continue;
+            }
+            _ => {
+                // Ignore other messages during handshake
+                continue;
+            }
+        }
+    }
+
     Ok(())
 }
 

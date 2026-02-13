@@ -67,6 +67,18 @@ async fn test_client_can_connect() {
 #[tokio::test]
 async fn test_server_rejects_unknown_client_name() {
     let (server, port) = common::spawn_test_server("known-client").await;
+    let server = Arc::new(server);
+
+    // Spawn server event loop to accept (and reject) connections
+    let server_clone = Arc::clone(&server);
+    tokio::spawn(async move {
+        loop {
+            let _ = server_clone.recv_event().await;
+        }
+    });
+
+    // Give server a moment to be ready
+    tokio::time::sleep(Duration::from_millis(50)).await;
 
     // Try to connect with wrong name
     let result = ClientBuilder::new()
