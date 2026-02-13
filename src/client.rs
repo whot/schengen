@@ -272,19 +272,18 @@ impl Builder<NeedsAddress> {
 
     fn parse_host_port(&self, server: &str) -> Result<(String, u16)> {
         // Check if this starts with a bracket (IPv6 with optional port like "[::1]:8080" or "[::1]")
-        if server.starts_with('[') {
-            if let Some(bracket_end) = server.find(']') {
-                let host = &server[1..bracket_end];
-                // Check for port after the bracket
-                if bracket_end + 1 < server.len()
-                    && server.chars().nth(bracket_end + 1) == Some(':')
-                {
-                    if let Ok(port) = server[bracket_end + 2..].parse::<u16>() {
-                        return Ok((host.to_string(), port));
-                    }
-                }
-                return Ok((host.to_string(), DEFAULT_PORT));
+        if server.starts_with('[')
+            && let Some(bracket_end) = server.find(']')
+        {
+            let host = &server[1..bracket_end];
+            // Check for port after the bracket
+            if bracket_end + 1 < server.len()
+                && server.chars().nth(bracket_end + 1) == Some(':')
+                && let Ok(port) = server[bracket_end + 2..].parse::<u16>()
+            {
+                return Ok((host.to_string(), port));
             }
+            return Ok((host.to_string(), DEFAULT_PORT));
         }
 
         // Count colons to detect IPv6 without brackets
@@ -296,11 +295,11 @@ impl Builder<NeedsAddress> {
         }
 
         // Single colon or no colon - could be host:port or just host
-        if let Some(colon_pos) = server.rfind(':') {
-            if let Ok(port) = server[colon_pos + 1..].parse::<u16>() {
-                let host = &server[..colon_pos];
-                return Ok((host.to_string(), port));
-            }
+        if let Some(colon_pos) = server.rfind(':')
+            && let Ok(port) = server[colon_pos + 1..].parse::<u16>()
+        {
+            let host = &server[..colon_pos];
+            return Ok((host.to_string(), port));
         }
 
         // No port found, use default
@@ -354,10 +353,10 @@ impl Builder<Ready> {
         loop {
             attempt += 1;
 
-            if let Some(conn_timeout) = self.connection_timeout {
-                if start_time.elapsed() >= conn_timeout {
-                    return Err(ClientError::ConnectionTimeoutExceeded(conn_timeout));
-                }
+            if let Some(conn_timeout) = self.connection_timeout
+                && start_time.elapsed() >= conn_timeout
+            {
+                return Err(ClientError::ConnectionTimeoutExceeded(conn_timeout));
             }
 
             match TcpStream::connect(&server_addr).await {
@@ -365,10 +364,10 @@ impl Builder<Ready> {
                     return Ok(stream);
                 }
                 Err(_) => {
-                    if let Some(max_retries) = self.retry_count {
-                        if attempt >= max_retries {
-                            return Err(ClientError::MaxRetriesExceeded(max_retries));
-                        }
+                    if let Some(max_retries) = self.retry_count
+                        && attempt >= max_retries
+                    {
+                        return Err(ClientError::MaxRetriesExceeded(max_retries));
                     }
                     sleep(self.retry_interval).await;
                 }

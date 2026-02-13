@@ -748,31 +748,31 @@ impl Server {
             // Check for messages from existing clients first
             for client in &client_list {
                 // Try to acquire write lock without blocking too long
-                if let Ok(mut client_lock) = client.try_write() {
-                    if !client_lock.buffer.is_empty() {
-                        let client_info = client_lock.client.clone();
-                        match client_lock.recv_message().await {
-                            Ok(Some(msg)) => {
-                                drop(client_lock);
-                                if let Some(event) =
-                                    self.handle_client_message(&client_info, msg).await?
-                                {
-                                    return Ok(event);
-                                }
+                if let Ok(mut client_lock) = client.try_write()
+                    && !client_lock.buffer.is_empty()
+                {
+                    let client_info = client_lock.client.clone();
+                    match client_lock.recv_message().await {
+                        Ok(Some(msg)) => {
+                            drop(client_lock);
+                            if let Some(event) =
+                                self.handle_client_message(&client_info, msg).await?
+                            {
+                                return Ok(event);
                             }
-                            Ok(None) => {
-                                // Timeout - no message available, try next client
-                            }
-                            Err(_) => {
-                                drop(client_lock);
-                                let client_id = client_info.id();
-                                let client_name = client_info.name().to_string();
-                                self.remove_client(client_id).await;
-                                return Ok(ServerEvent::ClientDisconnected {
-                                    client_id,
-                                    name: client_name,
-                                });
-                            }
+                        }
+                        Ok(None) => {
+                            // Timeout - no message available, try next client
+                        }
+                        Err(_) => {
+                            drop(client_lock);
+                            let client_id = client_info.id();
+                            let client_name = client_info.name().to_string();
+                            self.remove_client(client_id).await;
+                            return Ok(ServerEvent::ClientDisconnected {
+                                client_id,
+                                name: client_name,
+                            });
                         }
                     }
                 }
